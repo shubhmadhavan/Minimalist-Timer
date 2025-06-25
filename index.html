@@ -11,8 +11,11 @@ body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; 
 #currentInfo { opacity: 0.45; font-size: 18px; color: Ivory; }
 #timeStats { opacity: 0.45; font-size: 16px; color: Ivory; text-align: center; }
 #setsProgress { font-size: 14px; color: #888; }
-#controls { display: flex; gap: 10px; }
-#controls button { padding: 6px 14px; font-size: 14px; background: #444; border: none; border-radius: 4px; color: Ivory; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+#controls { display: flex; gap:8px; }
+#controls button { padding: 6px 2px; font-size: 14px; background: #444; border: none; border-radius: 4px; color: Ivory; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+button { min-width: 40px; padding: 3px 2px; font-size: 12px; background: #898989; border: none; border-radius: 4px; color: Ivory; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+button:disabled {background: #454343;}
+
 .set-item.active { border-color: rgb(147, 214, 132); box-shadow: 0 0 10px 3px rgb(147, 214, 132); }
 .set-item.completed { background: #3a3a3a !important; text-decoration: line-through; color: #777; filter: grayscale(60%) brightness(85%); }
 #formContainer h3, #sidebar h3 { margin-top: 0; margin-bottom: 6px; font-size: 16px; color: Ivory; }
@@ -63,10 +66,13 @@ For changing set item list Completed bar color go to
           <option value="down">Count Down</option>
         </select>
       </label>
-        <button id="pauseBtn" disabled>Pause</button>
-  <button id="resumeBtn" disabled>Resume</button>
-  <button id="resetBtn">Reset</button>
+
   <button id="startBtn">Start</button>
+  <button id="pauseBtn" disabled >Pause</button>
+
+  <button id="resumeBtn" disabled>Resume</button>
+  <button id="resetBtn" disabled>Reset</button>
+
  
       <hr>
     <h3>Sets</h3>
@@ -208,12 +214,15 @@ function startTimer() {
   timerID = setInterval(tick, 1000);
   document.getElementById('pauseBtn').disabled = false;
   document.getElementById('startBtn').disabled = true;
+  document.getElementById('resetBtn').disabled = false;
+    document.getElementById('startBtn').disabled = true;
 }
 
 function pauseTimer() {
   if (!running) return;
   clearInterval(timerID);
   running = false;
+  document.getElementById('pauseBtn').disabled = true;
   document.getElementById('resumeBtn').disabled = false;
 }
 
@@ -221,6 +230,7 @@ function resumeTimer() {
   if (running) return;
   running = true;
   timerID = setInterval(tick, 1000);
+  document.getElementById('pauseBtn').disabled = false;
   document.getElementById('resumeBtn').disabled = true;
 }
 
