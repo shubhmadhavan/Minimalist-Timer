@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Game Timer</title>
+<style>
+body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; background: #121212; color: Ivory; }
+#sidebar { opacity: 0.7; width: 245px; background: #2a2a2a; border-right: 1px solid #444; overflow-y: auto; padding: 12px; box-sizing: border-box; color: Ivory; }
+#main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+#timerDisplay { font-size: 444px; cursor: pointer; user-select: none; padding: 20px 40px; border: 4px solid #333; border-radius: 12px; color: Ivory; background: #1e1e1e; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+#timerDisplay:hover, #timerDisplay:focus { transform: scale(1.02); box-shadow: 0 0 20px 4px rgba(255, 255, 255, 0.2); outline: none; }
+#currentInfo { opacity: 0.45; font-size: 18px; color: Ivory; }
+#timeStats { opacity: 0.45; font-size: 16px; color: Ivory; text-align: center; }
+#setsProgress { font-size: 14px; color: #888; }
+#controls { display: flex; gap: 10px; }
+#controls button { padding: 6px 14px; font-size: 14px; background: #444; border: none; border-radius: 4px; color: Ivory; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+#controls button:hover, #controls button:focus { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.4); outline: none; }
+.set-item.active { border-color: rgb(147, 214, 132); box-shadow: 0 0 10px 3px rgb(147, 214, 132); }
+.set-item.completed { background: #3a3a3a !important; text-decoration: line-through; color: #777; filter: grayscale(60%) brightness(85%); }
+#formContainer h3, #sidebar h3 { margin-top: 0; margin-bottom: 6px; font-size: 16px; color: Ivory; }
+#formContainer { margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+#formContainer label { display: block; margin: 4px 0; font-size: 12px; color: Ivory; }
+#formContainer input, #formContainer select { margin-left: 4px; background: #2a2a2a; border: 1px solid #555; color: Ivory; border-radius: 3px; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+
+input#lengthInput {width: 45px !important;}
+input#secondInput {width: 44px !important;}
+input#setsInput {width: 40px !important;}
+
+#formContainer input:hover, #formContainer select:hover, #formContainer input:focus, #formContainer select:focus { border-color: rgb(188, 188, 188); box-shadow: 0 0 8px rgb(203, 203, 203); outline: none; }
+
+.set-item { position: relative; padding: 6px 8px; margin: 2px 0; border: 1px solid #bbb; border-radius: 4px; cursor: pointer; font-size: 14px; background: #a7a5a5; transition: box-shadow 0.3s ease, transform 0.3s; }
+.set-item:hover, .set-item:focus { box-shadow: 0 0 12px 2px rgba(147, 214, 132, 0.6); transform: scale(1.02); outline: none; }
+
+
+#setsList { color: Ivory; opacity: 0.8; }
+
+</style>
+<!-- 
+For changing set item list Completed bar color go to
+      div.style.background = `linear-gradient(to right, Ivory ${percent}%, #fff ${percent}%)`;
+-->
+
+</head>
+<body>
+  <div id="sidebar">
+    <div id="formContainer">
+      <label>Min: <input type="number" id="lengthInput" value="10" min="0"></label>
+      <label>Sec: <input type="number" id="secondInput" value="0" min="0" max="59"></label>
+      <label>Sets: <input type="number" id="setsInput" value="10" min="1"></label>
+      <label>Set Name: <input type="text" id="setNameInput" value="Q"></label>
+      <button id="addClassBtn">Add Class</button>
+      <hr>
+      <label>Mode:
+        <select id="modeSelect">
+          <option value="up" selected>Count Up</option>
+          <option value="down">Count Down</option>
+        </select>
+      </label>
+        <button id="pauseBtn" disabled>Pause</button>
+  <button id="resumeBtn" disabled>Resume</button>
+  <button id="resetBtn">Reset</button>
+  <button id="startBtn">Start</button>
+ 
+      <hr>
+    <h3>Sets</h3>
+    <div id="setsList"></div>
+       </div>
+  </div>
+
+  <div id="main">
+    <div id="timerDisplay">00:00</div>
+
+    <div id="setsProgress"></div>
+    <div id="currentInfo"> ‎ ‎  </div>
+    <div id="timeStats"> ‎ <br> ‎  </div>
+
+    <div id="controls">
+
+</div>
+  </div>
+
+<script>
+const classes = [];
+let currentClassIndex = 0;
+let currentSetIndex = 0;
+let timerID = null;
+let mode = 'up';
+let running = false;
+
+function addClass(lengthMinutes, lengthSeconds, sets, className, setName) {
+  classes.push({
+    lengthSec: lengthMinutes * 60 + lengthSeconds,
+    sets: sets,
+    className: className,
+    setName: setName,
+    elapsed: Array(sets).fill(0)
+  });
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function renderSets() {
+  const list = document.getElementById('setsList');
+  list.innerHTML = '';
+  let count = 1;
+  classes.forEach((cls, cIdx) => {
+    cls.elapsed.forEach((el, sIdx) => {
+      const div = document.createElement('div');
+      div.className = 'set-item';
+      const percent = Math.min(100, 100 * el / cls.lengthSec);
+      div.style.background = `linear-gradient(to right, #79FFA2 ${percent}%, #808080 ${percent}%)`;
+      if (cIdx === currentClassIndex && sIdx === currentSetIndex) div.classList.add('active');
+      if (el >= cls.lengthSec) div.classList.add('completed');
+      const minutes = Math.floor(cls.lengthSec / 60);
+const seconds = cls.lengthSec % 60;
+div.textContent = `${count}. ${minutes} minute${minutes !== 1 ? 's' : ''}${seconds ? ` and ${seconds} second${seconds !== 1 ? 's' : ''}` : ''}`;
+      div.onclick = () => {
+        if (running) jumpTo(cIdx, sIdx);
+      };
+      list.appendChild(div);
+      count++;
+    });
+  });
+}
+
+function updateDisplay() {
+  const cls = classes[currentClassIndex];
+  const elapsed = cls.elapsed[currentSetIndex];
+  const disp = mode === 'up' ? elapsed : Math.max(cls.lengthSec - elapsed, 0);
+  document.getElementById('timerDisplay').textContent = formatTime(disp);
+}
+
+function updateInfo() {
+  const cls = classes[currentClassIndex];
+  document.getElementById('currentInfo').textContent =
+    `Set ${currentSetIndex + 1}/${cls.sets}`; 
+
+  const totalElapsed = classes.reduce((sum, c) => sum + c.elapsed.reduce((a, b) => a + b, 0), 0);
+  const totalDuration = classes.reduce((sum, c) => sum + c.lengthSec * c.sets, 0);
+
+  document.getElementById('timeStats').innerHTML =
+    `Time Elapsed: ${formatHMS(totalElapsed)}<br>Total Time: ${formatHMS(totalDuration)}`;
+}
+
+
+function jumpTo(cIdx, sIdx) {
+  currentClassIndex = cIdx;
+  currentSetIndex = sIdx;
+  updateInfo();
+  updateDisplay();
+  renderSets();
+}
+
+function tick() {
+  const cls = classes[currentClassIndex];
+  cls.elapsed[currentSetIndex]++;
+  updateDisplay();
+  updateInfo();
+  renderSets();
+  if (cls.elapsed[currentSetIndex] >= cls.lengthSec) {
+    nextSetOrClass();
+  }
+}
+
+function formatHMS(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  let parts = [];
+  if (h > 0) parts.push(`${h}hr`);
+  if (m > 0 || h > 0) parts.push(`${m}m`);
+  parts.push(`${s}s`);
+  return parts.join(' ');
+}
+
+
+function nextSetOrClass() {
+  const cls = classes[currentClassIndex];
+  if (currentSetIndex < cls.sets - 1) {
+    currentSetIndex++;
+  } else if (currentClassIndex < classes.length - 1) {
+    currentClassIndex++;
+    currentSetIndex = 0;
+  } else {
+    stopTimer();
+    alert('All sets completed!');
+    return;
+  }
+  updateInfo();
+  renderSets();
+  updateDisplay();
+}
+
+function startTimer() {
+  if (running) return;
+  running = true;
+  timerID = setInterval(tick, 1000);
+  document.getElementById('pauseBtn').disabled = false;
+  document.getElementById('startBtn').disabled = true;
+}
+
+function pauseTimer() {
+  if (!running) return;
+  clearInterval(timerID);
+  running = false;
+  document.getElementById('resumeBtn').disabled = false;
+}
+
+function resumeTimer() {
+  if (running) return;
+  running = true;
+  timerID = setInterval(tick, 1000);
+  document.getElementById('resumeBtn').disabled = true;
+}
+
+function stopTimer() {
+  clearInterval(timerID);
+  running = false;
+  document.getElementById('pauseBtn').disabled = true;
+  document.getElementById('resumeBtn').disabled = true;
+}
+
+function resetAll() {
+  stopTimer();
+  classes.forEach(cls => cls.elapsed.fill(0));
+  currentClassIndex = 0;
+  currentSetIndex = 0;
+  updateDisplay();
+  updateInfo();
+  renderSets();
+  document.getElementById('startBtn').disabled = false;
+}
+
+document.getElementById('addClassBtn').onclick = () => {
+  const lenMin = parseInt(document.getElementById('lengthInput').value, 10);
+  const lenSec = parseInt(document.getElementById('secondInput').value, 10);
+  const sets = parseInt(document.getElementById('setsInput').value, 10);
+  const setName = document.getElementById('setNameInput').value.trim() || 'Q';
+  if ((lenMin > 0 || lenSec > 0) && sets > 0) {
+    addClass(lenMin, lenSec, sets,  setName);
+    renderSets();
+  }
+};
+
+document.getElementById('startBtn').onclick = () => {
+  if (classes.length === 0) addClass(10, 0, 10, '', 'Q');
+  mode = document.getElementById('modeSelect').value;
+  updateInfo();
+  updateDisplay();
+  renderSets();
+  startTimer();
+};
+
+document.getElementById('pauseBtn').onclick = pauseTimer;
+document.getElementById('resumeBtn').onclick = resumeTimer;
+document.getElementById('resetBtn').onclick = resetAll;
+document.getElementById('timerDisplay').onclick = () => {
+  if (running) nextSetOrClass();
+};
+
+window.addEventListener('beforeunload', (e) => {
+  e.preventDefault();
+  e.returnValue = '';
+});
+</script>
+</body>
+</html>
