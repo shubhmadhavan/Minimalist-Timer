@@ -423,6 +423,46 @@ window.addEventListener('beforeunload', (e) => {
   e.preventDefault();
   e.returnValue = '';
 });
+
+
+let wakeLock = null;
+
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('Wake Lock is active');
+      wakeLock.addEventListener('release', () => {
+        console.log('Wake Lock was released');
+      });
+    } catch (err) {
+      console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+    }
+  } else {
+    console.warn('Wake Lock API not supported on this device.');
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock !== null) {
+    wakeLock.release();
+    wakeLock = null;
+  }
+}
+
+document.getElementById('startBtn').onclick = async () => {
+  if (classes.length === 0) {
+    alert('Please add at least one class before starting the timer.');
+    return;
+  }
+
+  mode = document.getElementById('modeSelect').value;
+  updateInfo();
+  updateDisplay();
+  renderSets();
+  startTimer();
+  await requestWakeLock(); // prevent screen sleep
+};
 </script>
 </body>
 </html>
