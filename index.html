@@ -116,19 +116,6 @@ let currentSetIndex = 0;
 let timerID = null;
 let mode = 'up';
 let running = false;
-let wakeLock = null;
-
-async function requestWakeLock() {
-  try {
-    wakeLock = await navigator.wakeLock.request('screen');
-    console.log('Wake Lock is active');
-    wakeLock.addEventListener('release', () => {
-      console.log('Wake Lock was released');
-    });
-  } catch (err) {
-    console.error(`${err.name}, ${err.message}`);
-  }
-}
 
 
 function addClass(lengthMinutes, lengthSeconds, sets, className, setName) {
@@ -378,13 +365,7 @@ function stopTimer() {
   intervalID = null;
   document.getElementById('pauseBtn').disabled = true;
   document.getElementById('resumeBtn').disabled = true;
-  if (wakeLock !== null) {
-  wakeLock.release();
-  wakeLock = null;
-}
-
 } 
-
 function resetAll() {
   stopTimer();
   classes.forEach(cls => cls.elapsed.fill(0));
@@ -429,7 +410,6 @@ document.getElementById('startBtn').onclick = () => {
   updateDisplay();
   renderSets();
   startTimer();
-  await requestWakeLock();
 };
 
 document.getElementById('pauseBtn').onclick = pauseTimer;
