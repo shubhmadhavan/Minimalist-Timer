@@ -66,9 +66,9 @@ For changing set item list Completed bar color go to
 <body>
   <div id="sidebar">
     <div id="formContainer">
-      <label>Min: <input type="number" id="lengthInput" value="10" min="0"></label>
+      <label>Min: <input type="number" id="lengthInput" value="0" min="0"></label>
       <label>Sec: <input type="number" id="secondInput" value="0" min="0" max="59"></label>
-      <label>Sets: <input type="number" id="setsInput" value="10" min="1"></label>
+      <label>Sets: <input type="number" id="setsInput" value="1" min="1"></label>
       <label>Set Name: <input type="text" id="setNameInput" value="Q"></label>
       <button id="addClassBtn">Add Class</button>
       <hr>
@@ -236,6 +236,35 @@ function jumpTo(cIdx, sIdx) {
 let lastTimestamp = null;
 
 
+const audioContext = new AudioContext();
+
+async function playTickSound(frequency = 1000, volume = 0.01) {
+  if (audioContext.state === 'suspended') {
+    await audioContext.resume();
+  }
+
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+  
+  gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.1);
+
+  oscillator.onended = () => {
+    oscillator.disconnect();
+    gainNode.disconnect();
+  };
+}
+
+
+
 function tick(deltaSec) {
   const cls = classes[currentClassIndex];
   cls.elapsed[currentSetIndex] += deltaSec;
@@ -244,29 +273,19 @@ function tick(deltaSec) {
   updateInfo();
   renderSets();
 
+  // Play tick sound every second
+  playTickSound(500, 0.009);
+
   if (cls.elapsed[currentSetIndex] >= cls.lengthSec) {
+    // Play set completion sound (different frequency)
+    playTickSound(1500, 0.07);
+
     nextSetOrClass();
     lastTimestamp = null; // reset for the next set
   }
 }
 
-let timeAccumulator = 0;
-function runLoop(timestamp) {
-  if (!running) return;
-  if (lastTimestamp == null) {
-    lastTimestamp = timestamp;
-  }
-  const delta = (timestamp - lastTimestamp) / 1000; // in seconds
-  lastTimestamp = timestamp;
-  timeAccumulator += delta;
 
-  while (timeAccumulator >= 1) {
-    tick(1);
-    timeAccumulator -= 1;
-  }
-
-  requestAnimationFrame(runLoop);
-}
 
 function formatHMS(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -289,7 +308,12 @@ function nextSetOrClass() {
     currentSetIndex = 0;
   } else {
     stopTimer();
-    alert('All sets completed!');
+
+    playTickSound(1400, 0.07);
+    // Play final completion sound (lower frequency, longer)
+    
+
+    // alert('All sets completed!');
     return;
   }
   updateInfo();
@@ -297,11 +321,18 @@ function nextSetOrClass() {
   updateDisplay();
 }
 
+let intervalID = null;
+
 function startTimer() {
   if (running) return;
   running = true;
   lastTimestamp = null;
-  requestAnimationFrame(runLoop);
+
+  intervalID = setInterval(() => {
+    if (!running) return;
+    tick(1);
+  }, 1000);
+
   document.getElementById('pauseBtn').disabled = false;
   document.getElementById('startBtn').disabled = true;
   document.getElementById('resetBtn').disabled = false;
@@ -310,26 +341,30 @@ function startTimer() {
 function pauseTimer() {
   if (!running) return;
   running = false;
+  clearInterval(intervalID);
+  intervalID = null;
   document.getElementById('pauseBtn').disabled = true;
   document.getElementById('resumeBtn').disabled = false;
 }
 
-
 function resumeTimer() {
   if (running) return;
   running = true;
-  lastTimestamp = null;
-  requestAnimationFrame(runLoop);
+  intervalID = setInterval(() => {
+    if (!running) return;
+    tick(1);
+  }, 1000);
   document.getElementById('pauseBtn').disabled = false;
   document.getElementById('resumeBtn').disabled = true;
 }
 
 function stopTimer() {
   running = false;
+  clearInterval(intervalID);
+  intervalID = null;
   document.getElementById('pauseBtn').disabled = true;
   document.getElementById('resumeBtn').disabled = true;
-}
-
+} 
 function resetAll() {
   stopTimer();
   classes.forEach(cls => cls.elapsed.fill(0));
@@ -354,8 +389,6 @@ document.getElementById('addClassBtn').onclick = () => {
 
 
 // Preload default sets
-if (classes.length === 0) {
-  //Section A
   addClass(7, 12, 5, '', 'Q'); // Five 10 marks Q.s
   addClass(14, 24, 1, '', 'Q'); // One 20 marks Q.s 
   addClass(10, 42, 2, '', 'Q'); // Two 15 marks Q.s
@@ -371,14 +404,16 @@ if (classes.length === 0) {
   addClass(10, 42, 2, '', 'Q'); // Two 15 marks Q.s
   addClass(14, 24, 1, '', 'Q'); // One 20 marks Q.s 
   addClass(10, 42, 2, '', 'Q'); // Two 15 marks Q.s
-}
 renderSets();
 updateInfo();
 updateDisplay();
 
 
 document.getElementById('startBtn').onclick = () => {
-  if (classes.length === 0) addClass(10, 0, 10, '', 'Q');
+  if (classes.length === 0) {
+    alert('Add Class');
+    return;  // Stop here, don't start timer
+  }
   mode = document.getElementById('modeSelect').value;
   updateInfo();
   updateDisplay();
@@ -400,3 +435,5 @@ window.addEventListener('beforeunload', (e) => {
 </script>
 </body>
 </html>
+
+
